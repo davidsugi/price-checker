@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "cd server && npm run dev",
+    "postinstall": "cd server && npm install",
     "build": "vite build && cd server && npm run build",
     "build:client": "vite build",
     "build:server": "cd server && npm run build",
@@ -18,7 +19,7 @@
     "wanakana": "^5.3.1"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": "20.x"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
