@@ -4,33 +4,30 @@ import {
   CARD_TYPE_OPTIONS,
   getCardTypeLabel,
   normalize,
-  loadCache,
-  saveCache,
+  fallbackToKatakana,
   loadRecentSearches,
   saveRecentSearches,
-  getJapaneseText,
   buildPriceChartingUrl,
   buildYuyuteiUrl,
   addRecentSearch,
 } from './utils'
+import { resolveCard } from './api'
 
 function App() {
   const [cardName, setCardName] = useState('')
-  const [cardType, setCardType] = useState(CARD_TYPE_OPTIONS[0].value)
+  const [cardType, setCardType] = useState<string>(CARD_TYPE_OPTIONS[0].value)
   const [japaneseOverride, setJapaneseOverride] = useState('')
   const [yuyuteiLink, setYuyuteiLink] = useState('')
   const [priceChartingLink, setPriceChartingLink] = useState('')
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([])
-  const [translationCache, setTranslationCache] = useState<
-    Record<string, string>
-  >({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     setRecentSearches(loadRecentSearches())
-    setTranslationCache(loadCache())
   }, [])
 
-  function handleGenerate(
+  async function handleGenerate(
     name: string = cardName,
     type: string = cardType,
     override: string = japaneseOverride,
@@ -38,29 +35,38 @@ function App() {
     const normalized = normalize(name)
     if (!normalized) return
 
-    const { japaneseText, updatedCache } = getJapaneseText(
-      normalized,
-      override,
-      translationCache,
-    )
+    setLoading(true)
+    setError('')
 
-    setTranslationCache(updatedCache)
-    saveCache(updatedCache)
+    try {
+      const result = await resolveCard({
+        cardName: normalized,
+        cardType: type,
+        override: override.trim() || undefined,
+      })
 
-    const yUrl = buildYuyuteiUrl(type, japaneseText)
-    const pcUrl = buildPriceChartingUrl(normalized)
-    setYuyuteiLink(yUrl)
-    setPriceChartingLink(pcUrl)
+      const japaneseText =
+        result.japanese !== null
+          ? result.japanese
+          : fallbackToKatakana(normalized)
 
-    const entry: RecentSearch = {
-      cardName: normalized,
-      cardType: type,
-      japaneseText,
-      timestamp: Date.now(),
+      setYuyuteiLink(buildYuyuteiUrl(type, japaneseText))
+      setPriceChartingLink(buildPriceChartingUrl(normalized))
+
+      const entry: RecentSearch = {
+        cardName: normalized,
+        cardType: type,
+        japaneseText,
+        timestamp: Date.now(),
+      }
+      const updated = addRecentSearch(recentSearches, entry)
+      setRecentSearches(updated)
+      saveRecentSearches(updated)
+    } catch {
+      setError('Failed to resolve card. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    const updated = addRecentSearch(recentSearches, entry)
-    setRecentSearches(updated)
-    saveRecentSearches(updated)
   }
 
   function handleRecentClick(item: RecentSearch) {
@@ -70,7 +76,7 @@ function App() {
     handleGenerate(item.cardName, item.cardType, item.japaneseText)
   }
 
-  const isDisabled = cardName.trim() === ''
+  const isDisabled = cardName.trim() === '' || loading
 
   return (
     <div className="min-h-screen bg-neutral-900 text-neutral-100 flex items-start justify-center px-4 py-12">
@@ -137,8 +143,13 @@ function App() {
           onClick={() => handleGenerate()}
           className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Generate
+          {loading ? 'Generating...' : 'Generate'}
         </button>
+
+        {/* Error */}
+        {error && (
+          <p className="text-sm text-red-400 text-center">{error}</p>
+        )}
 
         {/* Generated Links */}
         {(yuyuteiLink || priceChartingLink) && (

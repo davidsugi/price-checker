@@ -8,15 +8,15 @@ export type RecentSearch = {
 }
 
 export const CARD_TYPE_OPTIONS = [
-  { label: 'One Piece', value: 'opc' },
-  { label: 'Magic', value: 'mtg' },
+  { label: 'Pokemon', value: 'poc' },
   { label: 'Yu-Gi-Oh', value: 'ygo' },
   { label: 'Digimon', value: 'digi' },
+  { label: 'One Piece', value: 'opc' },
+  { label: 'Magic', value: 'mtg' },
 ] as const
 
 export type CardTypeValue = (typeof CARD_TYPE_OPTIONS)[number]['value']
 
-const LS_CACHE_KEY = 'tcg_translation_cache'
 const LS_RECENT_KEY = 'tcg_recent_searches'
 const MAX_RECENT = 10
 
@@ -25,32 +25,14 @@ export function getCardTypeLabel(value: string): string {
 }
 
 export function normalize(input: string): string {
-  return input.trim().replace(/\s+/g, ' ').toLowerCase()
+  return input.trim().replace(/\s+/g, ' ')
+}
+
+export function fallbackToKatakana(name: string): string {
+  return toKatakana(name)
 }
 
 // --- localStorage helpers ------------------------------------------------
-
-export function loadCache(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(LS_CACHE_KEY)
-    if (!raw) return {}
-    const parsed: unknown = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, string>
-    }
-    return {}
-  } catch {
-    return {}
-  }
-}
-
-export function saveCache(cache: Record<string, string>): void {
-  try {
-    localStorage.setItem(LS_CACHE_KEY, JSON.stringify(cache))
-  } catch {
-    /* quota exceeded or unavailable – silently ignore */
-  }
-}
 
 export function loadRecentSearches(): RecentSearch[] {
   try {
@@ -70,27 +52,6 @@ export function saveRecentSearches(items: RecentSearch[]): void {
   } catch {
     /* silently ignore */
   }
-}
-
-// --- Translation ---------------------------------------------------------
-
-export function getJapaneseText(
-  normalizedName: string,
-  override: string,
-  cache: Record<string, string>,
-): { japaneseText: string; updatedCache: Record<string, string> } {
-  const trimmedOverride = override.trim()
-  if (trimmedOverride) {
-    return { japaneseText: trimmedOverride, updatedCache: cache }
-  }
-
-  if (cache[normalizedName]) {
-    return { japaneseText: cache[normalizedName], updatedCache: cache }
-  }
-
-  const converted = toKatakana(normalizedName)
-  const updatedCache = { ...cache, [normalizedName]: converted }
-  return { japaneseText: converted, updatedCache }
 }
 
 // --- Link builders -------------------------------------------------------
