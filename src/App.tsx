@@ -23,7 +23,7 @@ import {
 function App() {
   const [cardName, setCardName] = useState('')
   const [cardType, setCardType] = useState<string>(CARD_TYPE_OPTIONS[0].value)
-  const [japaneseOverride, setJapaneseOverride] = useState('')
+  const [cardCode, setCardCode] = useState('')
   const [yuyuteiLink, setYuyuteiLink] = useState('')
   const [priceChartingLink, setPriceChartingLink] = useState('')
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([])
@@ -90,15 +90,41 @@ function App() {
   function handleGenerate(
     name: string = cardName,
     type: string = cardType,
-    override: string = japaneseOverride,
+    code: string = cardCode,
   ) {
+    const trimmedCode = code.trim()
     const normalized = normalize(name)
-    if (!normalized) return
+
+    if (!trimmedCode && !normalized) return
 
     setSavedMessage(false)
 
+    if (trimmedCode) {
+      // Search by code -- use code directly for both sites, no translation
+      setNotInList(false)
+      setCustomKatakana('')
+      setLastNormalized('')
+
+      const pcUrl = buildPriceChartingUrl(trimmedCode)
+      const yUrl = buildYuyuteiUrl(type, trimmedCode)
+      setPriceChartingLink(pcUrl)
+      setYuyuteiLink(yUrl)
+
+      const entry: RecentSearch = {
+        cardName: trimmedCode,
+        cardType: type,
+        japaneseText: trimmedCode,
+        timestamp: Date.now(),
+      }
+      const updated = addRecentSearch(recentSearches, entry)
+      setRecentSearches(updated)
+      saveRecentSearches(updated)
+      return
+    }
+
+    // Search by name -- translate for Yuyutei
     const effective = getEffectiveConfig(defaultConfig, userConfig, type)
-    const result = getJapaneseText(normalized, override, effective)
+    const result = getJapaneseText(normalized, '', effective)
 
     setNotInList(result.notInList)
     setCustomKatakana(result.japaneseText)
@@ -165,11 +191,11 @@ function App() {
   function handleRecentClick(item: RecentSearch) {
     setCardName(item.cardName)
     setCardType(item.cardType)
-    setJapaneseOverride(item.japaneseText)
-    handleGenerate(item.cardName, item.cardType, item.japaneseText)
+    setCardCode('')
+    handleGenerate(item.cardName, item.cardType, '')
   }
 
-  const isDisabled = cardName.trim() === ''
+  const isDisabled = cardName.trim() === '' && cardCode.trim() === ''
 
   return (
     <div className="min-h-screen bg-neutral-900 text-neutral-100 flex flex-col items-center px-4 py-12">
@@ -302,20 +328,20 @@ function App() {
           </select>
         </div>
 
-        {/* Japanese Override */}
+        {/* Search by Code */}
         <div className="space-y-1">
           <label
-            htmlFor="japaneseOverride"
+            htmlFor="cardCode"
             className="text-sm text-neutral-400"
           >
-            Japanese Override / Search by code (optional)
+            Search by Code (optional)
           </label>
           <input
-            id="japaneseOverride"
+            id="cardCode"
             type="text"
-            placeholder="Leave empty for auto-conversion"
-            value={japaneseOverride}
-            onChange={(e) => setJapaneseOverride(e.target.value)}
+            placeholder="e.g. OP05-119, LOB-001 (skips translation)"
+            value={cardCode}
+            onChange={(e) => setCardCode(e.target.value)}
             className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm outline-none focus:border-indigo-500"
           />
         </div>
