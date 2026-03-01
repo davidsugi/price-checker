@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   type RecentSearch,
   type FullConfig,
@@ -11,6 +11,8 @@ import {
   saveRecentSearches,
   getJapaneseText,
   getEffectiveConfig,
+  exportUserConfig,
+  mergeImportedConfig,
   buildPriceChartingUrl,
   buildYuyuteiUrl,
   addRecentSearch,
@@ -31,6 +33,45 @@ function App() {
   const [customKatakana, setCustomKatakana] = useState('')
   const [lastNormalized, setLastNormalized] = useState('')
   const [savedMessage, setSavedMessage] = useState(false)
+  const [importMessage, setImportMessage] = useState('')
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const comboboxRef = useRef<HTMLDivElement>(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [highlightIndex, setHighlightIndex] = useState(-1)
+  const listRef = useRef<HTMLUListElement>(null)
+
+  const cardNameOptions = useMemo(() => {
+    const effective = getEffectiveConfig(defaultConfig, userConfig, cardType)
+    return Object.keys(effective).sort()
+  }, [defaultConfig, userConfig, cardType])
+
+  const filteredOptions = useMemo(() => {
+    const query = cardName.trim().toLowerCase()
+    if (!query) return cardNameOptions.slice(0, 50)
+    return cardNameOptions.filter((opt) => opt.includes(query))
+  }, [cardName, cardNameOptions])
+
+  useEffect(() => {
+    setHighlightIndex(-1)
+  }, [filteredOptions])
+
+  useEffect(() => {
+    if (highlightIndex >= 0 && listRef.current) {
+      const item = listRef.current.children[highlightIndex] as HTMLElement
+      item?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightIndex])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     setRecentSearches(loadRecentSearches())
@@ -95,6 +136,28 @@ function App() {
     setYuyuteiLink(yUrl)
   }
 
+  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result as string) as FullConfig
+        const merged = mergeImportedConfig(userConfig, imported)
+        setUserConfig(merged)
+        saveUserConfig(merged)
+        setImportMessage('Translations imported.')
+      } catch {
+        setImportMessage('Invalid JSON file.')
+      }
+      setTimeout(() => setImportMessage(''), 3000)
+    }
+    reader.readAsText(file)
+
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   function handleRecentClick(item: RecentSearch) {
     setCardName(item.cardName)
     setCardType(item.cardType)
@@ -107,23 +170,113 @@ function App() {
   return (
     <div className="min-h-screen bg-neutral-900 text-neutral-100 flex items-start justify-center px-4 py-12">
       <div className="w-full max-w-md space-y-6">
-        <h1 className="text-2xl font-bold text-center">
-          TCG Price Link Generator
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">TCG Price Link Generator</h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportUserConfig(userConfig)}
+              className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition hover:bg-neutral-800"
+            >
+              Export
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition hover:bg-neutral-800"
+            >
+              Upload
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+            />
+          </div>
+        </div>
+        {importMessage && (
+          <p className={`text-sm ${importMessage.includes('Invalid') ? 'text-red-400' : 'text-green-400'}`}>
+            {importMessage}
+          </p>
+        )}
 
         {/* Card Name */}
         <div className="space-y-1">
           <label htmlFor="cardName" className="text-sm text-neutral-400">
             Card Name
           </label>
-          <input
-            id="cardName"
-            type="text"
-            placeholder="Enter card name (English)"
-            value={cardName}
-            onChange={(e) => setCardName(e.target.value)}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-          />
+          <div ref={comboboxRef} className="relative">
+            <input
+              id="cardName"
+              type="text"
+              role="combobox"
+              aria-expanded={dropdownOpen}
+              aria-autocomplete="list"
+              aria-controls="cardName-listbox"
+              autoComplete="off"
+              placeholder="Search or enter card name (English)"
+              value={cardName}
+              onChange={(e) => {
+                setCardName(e.target.value)
+                setDropdownOpen(true)
+              }}
+              onFocus={() => setDropdownOpen(true)}
+              onKeyDown={(e) => {
+                if (!dropdownOpen) {
+                  if (e.key === 'ArrowDown') {
+                    setDropdownOpen(true)
+                    e.preventDefault()
+                  }
+                  return
+                }
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setHighlightIndex((i) =>
+                    i < filteredOptions.length - 1 ? i + 1 : i,
+                  )
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setHighlightIndex((i) => (i > 0 ? i - 1 : -1))
+                } else if (e.key === 'Enter' && highlightIndex >= 0) {
+                  e.preventDefault()
+                  setCardName(filteredOptions[highlightIndex])
+                  setDropdownOpen(false)
+                } else if (e.key === 'Escape') {
+                  setDropdownOpen(false)
+                }
+              }}
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            />
+            {dropdownOpen && filteredOptions.length > 0 && (
+              <ul
+                ref={listRef}
+                id="cardName-listbox"
+                role="listbox"
+                className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-neutral-700 bg-neutral-800 py-1 text-sm shadow-lg"
+              >
+                {filteredOptions.map((option, idx) => (
+                  <li
+                    key={option}
+                    role="option"
+                    aria-selected={idx === highlightIndex}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      setCardName(option)
+                      setDropdownOpen(false)
+                    }}
+                    onMouseEnter={() => setHighlightIndex(idx)}
+                    className={`cursor-pointer px-3 py-1.5 ${
+                      idx === highlightIndex
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-neutral-300 hover:bg-neutral-700'
+                    }`}
+                  >
+                    {option}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* Card Type */}

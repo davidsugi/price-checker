@@ -20,6 +20,7 @@ export const CARD_TYPE_OPTIONS = [
   { label: 'Magic', value: 'mtg' },
   { label: 'Yu-Gi-Oh', value: 'ygo' },
   { label: 'Digimon', value: 'digi' },
+  { label: 'Pokemon', value: 'poc' },
 ] as const
 
 export type CardTypeValue = (typeof CARD_TYPE_OPTIONS)[number]['value']
@@ -91,6 +92,34 @@ export function getEffectiveConfig(
     ...(defaultConfig[cardType] ?? {}),
     ...(userConfig[cardType] ?? {}),
   }
+}
+
+// --- Export / Import -----------------------------------------------------
+
+export function exportUserConfig(config: FullConfig): void {
+  const blob = new Blob([JSON.stringify(config, null, 2)], {
+    type: 'application/json',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'tcg-translations.json'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export function mergeImportedConfig(
+  existing: FullConfig,
+  imported: FullConfig,
+): FullConfig {
+  const merged = { ...existing }
+  for (const category of Object.keys(imported)) {
+    merged[category] = {
+      ...(merged[category] ?? {}),
+      ...imported[category],
+    }
+  }
+  return merged
 }
 
 // --- Translation ---------------------------------------------------------
