@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import CurrencyConverter from './CurrencyConverter'
 import {
   type RecentSearch,
   type FullConfig,
@@ -411,6 +412,9 @@ function App() {
           )}
         </div>
       )}
+
+      {/* Currency Converter */}
+      {(yuyuteiLink || priceChartingLink) && <CurrencyConverter />}
 
       {/* Recent Searches */}
       {recentSearches.length > 0 && (

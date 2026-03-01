@@ -248,6 +248,57 @@ export function buildYuyuteiUrl(
   return `https://yuyu-tei.jp/sell/${cardType}/s/search?search_word=${encoded}`
 }
 
+// --- Exchange rates (USD/JPY → IDR) --------------------------------------
+
+const LS_RATES_KEY = 'tcg_exchange_rates'
+const RATES_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+export type ExchangeRates = {
+  usdToIdr: number
+  jpyToIdr: number
+  fetchedAt: number
+}
+
+export function loadCachedRates(): ExchangeRates | null {
+  try {
+    const raw = localStorage.getItem(LS_RATES_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as ExchangeRates
+    if (Date.now() - parsed.fetchedAt > RATES_TTL_MS) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export async function fetchExchangeRates(): Promise<ExchangeRates | null> {
+  const cached = loadCachedRates()
+  if (cached) return cached
+
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD')
+    if (!res.ok) return null
+    const json = (await res.json()) as { rates?: Record<string, number> }
+    const idr = json.rates?.IDR
+    const jpy = json.rates?.JPY
+    if (!idr || !jpy) return null
+
+    const rates: ExchangeRates = {
+      usdToIdr: idr,
+      jpyToIdr: idr / jpy,
+      fetchedAt: Date.now(),
+    }
+    try {
+      localStorage.setItem(LS_RATES_KEY, JSON.stringify(rates))
+    } catch {
+      /* quota exceeded */
+    }
+    return rates
+  } catch {
+    return null
+  }
+}
+
 // --- Recent search management --------------------------------------------
 
 export function addRecentSearch(
