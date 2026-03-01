@@ -256,6 +256,7 @@ const RATES_TTL_MS = 60 * 60 * 1000 // 1 hour
 export type ExchangeRates = {
   usdToIdr: number
   jpyToIdr: number
+  thbToIdr: number
   fetchedAt: number
 }
 
@@ -281,11 +282,13 @@ export async function fetchExchangeRates(): Promise<ExchangeRates | null> {
     const json = (await res.json()) as { rates?: Record<string, number> }
     const idr = json.rates?.IDR
     const jpy = json.rates?.JPY
-    if (!idr || !jpy) return null
+    const thb = json.rates?.THB
+    if (!idr || !jpy || !thb) return null
 
     const rates: ExchangeRates = {
       usdToIdr: idr,
       jpyToIdr: idr / jpy,
+      thbToIdr: idr / thb,
       fetchedAt: Date.now(),
     }
     try {
