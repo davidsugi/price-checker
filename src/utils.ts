@@ -7,6 +7,14 @@ export type RecentSearch = {
   timestamp: number
 }
 
+export type CategoryConfig = Record<string, string>
+export type FullConfig = Record<string, CategoryConfig>
+
+export type TranslationResult = {
+  japaneseText: string
+  notInList: boolean
+}
+
 export const CARD_TYPE_OPTIONS = [
   { label: 'One Piece', value: 'opc' },
   { label: 'Magic', value: 'mtg' },
@@ -16,7 +24,7 @@ export const CARD_TYPE_OPTIONS = [
 
 export type CardTypeValue = (typeof CARD_TYPE_OPTIONS)[number]['value']
 
-const LS_CACHE_KEY = 'tcg_translation_cache'
+const LS_USER_CONFIG_KEY = 'tcg_config_user'
 const LS_RECENT_KEY = 'tcg_recent_searches'
 const MAX_RECENT = 10
 
@@ -30,13 +38,13 @@ export function normalize(input: string): string {
 
 // --- localStorage helpers ------------------------------------------------
 
-export function loadCache(): Record<string, string> {
+export function loadUserConfig(): FullConfig {
   try {
-    const raw = localStorage.getItem(LS_CACHE_KEY)
+    const raw = localStorage.getItem(LS_USER_CONFIG_KEY)
     if (!raw) return {}
     const parsed: unknown = JSON.parse(raw)
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, string>
+      return parsed as FullConfig
     }
     return {}
   } catch {
@@ -44,11 +52,11 @@ export function loadCache(): Record<string, string> {
   }
 }
 
-export function saveCache(cache: Record<string, string>): void {
+export function saveUserConfig(config: FullConfig): void {
   try {
-    localStorage.setItem(LS_CACHE_KEY, JSON.stringify(cache))
+    localStorage.setItem(LS_USER_CONFIG_KEY, JSON.stringify(config))
   } catch {
-    /* quota exceeded or unavailable – silently ignore */
+    /* quota exceeded or unavailable */
   }
 }
 
@@ -72,25 +80,46 @@ export function saveRecentSearches(items: RecentSearch[]): void {
   }
 }
 
+// --- Config merge --------------------------------------------------------
+
+export function getEffectiveConfig(
+  defaultConfig: FullConfig,
+  userConfig: FullConfig,
+  cardType: string,
+): CategoryConfig {
+  return {
+    ...(defaultConfig[cardType] ?? {}),
+    ...(userConfig[cardType] ?? {}),
+  }
+}
+
 // --- Translation ---------------------------------------------------------
 
 export function getJapaneseText(
   normalizedName: string,
   override: string,
-  cache: Record<string, string>,
-): { japaneseText: string; updatedCache: Record<string, string> } {
+  effectiveConfig: CategoryConfig,
+): TranslationResult {
   const trimmedOverride = override.trim()
   if (trimmedOverride) {
-    return { japaneseText: trimmedOverride, updatedCache: cache }
+    return { japaneseText: trimmedOverride, notInList: false }
   }
 
-  if (cache[normalizedName]) {
-    return { japaneseText: cache[normalizedName], updatedCache: cache }
+  if (effectiveConfig[normalizedName]) {
+    return { japaneseText: effectiveConfig[normalizedName], notInList: false }
   }
 
-  const converted = toKatakana(normalizedName)
-  const updatedCache = { ...cache, [normalizedName]: converted }
-  return { japaneseText: converted, updatedCache }
+  const tokens = normalizedName.split(/\s+/)
+  let anyMissing = false
+  const parts = tokens.map((token) => {
+    if (effectiveConfig[token]) {
+      return effectiveConfig[token]
+    }
+    anyMissing = true
+    return toKatakana(token)
+  })
+
+  return { japaneseText: parts.join(''), notInList: anyMissing }
 }
 
 // --- Link builders -------------------------------------------------------

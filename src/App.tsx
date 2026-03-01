@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
 import {
   type RecentSearch,
+  type FullConfig,
   CARD_TYPE_OPTIONS,
   getCardTypeLabel,
   normalize,
-  loadCache,
-  saveCache,
+  loadUserConfig,
+  saveUserConfig,
   loadRecentSearches,
   saveRecentSearches,
   getJapaneseText,
+  getEffectiveConfig,
   buildPriceChartingUrl,
   buildYuyuteiUrl,
   addRecentSearch,
@@ -16,18 +18,28 @@ import {
 
 function App() {
   const [cardName, setCardName] = useState('')
-  const [cardType, setCardType] = useState(CARD_TYPE_OPTIONS[0].value)
+  const [cardType, setCardType] = useState<string>(CARD_TYPE_OPTIONS[0].value)
   const [japaneseOverride, setJapaneseOverride] = useState('')
   const [yuyuteiLink, setYuyuteiLink] = useState('')
   const [priceChartingLink, setPriceChartingLink] = useState('')
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([])
-  const [translationCache, setTranslationCache] = useState<
-    Record<string, string>
-  >({})
+
+  const [defaultConfig, setDefaultConfig] = useState<FullConfig>({})
+  const [userConfig, setUserConfig] = useState<FullConfig>({})
+
+  const [notInList, setNotInList] = useState(false)
+  const [customKatakana, setCustomKatakana] = useState('')
+  const [lastNormalized, setLastNormalized] = useState('')
+  const [savedMessage, setSavedMessage] = useState(false)
 
   useEffect(() => {
     setRecentSearches(loadRecentSearches())
-    setTranslationCache(loadCache())
+    setUserConfig(loadUserConfig())
+
+    fetch('/configuration.json')
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: FullConfig) => setDefaultConfig(data))
+      .catch(() => setDefaultConfig({}))
   }, [])
 
   function handleGenerate(
@@ -38,16 +50,16 @@ function App() {
     const normalized = normalize(name)
     if (!normalized) return
 
-    const { japaneseText, updatedCache } = getJapaneseText(
-      normalized,
-      override,
-      translationCache,
-    )
+    setSavedMessage(false)
 
-    setTranslationCache(updatedCache)
-    saveCache(updatedCache)
+    const effective = getEffectiveConfig(defaultConfig, userConfig, type)
+    const result = getJapaneseText(normalized, override, effective)
 
-    const yUrl = buildYuyuteiUrl(type, japaneseText)
+    setNotInList(result.notInList)
+    setCustomKatakana(result.japaneseText)
+    setLastNormalized(normalized)
+
+    const yUrl = buildYuyuteiUrl(type, result.japaneseText)
     const pcUrl = buildPriceChartingUrl(normalized)
     setYuyuteiLink(yUrl)
     setPriceChartingLink(pcUrl)
@@ -55,12 +67,32 @@ function App() {
     const entry: RecentSearch = {
       cardName: normalized,
       cardType: type,
-      japaneseText,
+      japaneseText: result.japaneseText,
       timestamp: Date.now(),
     }
     const updated = addRecentSearch(recentSearches, entry)
     setRecentSearches(updated)
     saveRecentSearches(updated)
+  }
+
+  function handleSaveKatakana() {
+    const trimmed = customKatakana.trim()
+    if (!trimmed || !lastNormalized) return
+
+    const updatedUserConfig: FullConfig = {
+      ...userConfig,
+      [cardType]: {
+        ...(userConfig[cardType] ?? {}),
+        [lastNormalized]: trimmed,
+      },
+    }
+    setUserConfig(updatedUserConfig)
+    saveUserConfig(updatedUserConfig)
+    setNotInList(false)
+    setSavedMessage(true)
+
+    const yUrl = buildYuyuteiUrl(cardType, trimmed)
+    setYuyuteiLink(yUrl)
   }
 
   function handleRecentClick(item: RecentSearch) {
@@ -139,6 +171,35 @@ function App() {
         >
           Generate
         </button>
+
+        {/* Not-in-list hint + save */}
+        {notInList && (
+          <div className="space-y-2 rounded-lg border border-amber-700/50 bg-amber-950/30 p-4 text-sm">
+            <p className="text-amber-400">
+              This name is not in the dictionary. You can save a custom katakana
+              for next time.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customKatakana}
+                onChange={(e) => setCustomKatakana(e.target.value)}
+                className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+              <button
+                onClick={handleSaveKatakana}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-500"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Save success */}
+        {savedMessage && (
+          <p className="text-sm text-green-400">Katakana saved.</p>
+        )}
 
         {/* Generated Links */}
         {(yuyuteiLink || priceChartingLink) && (
