@@ -168,7 +168,7 @@ function App() {
   const isDisabled = cardName.trim() === ''
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-100 flex items-start justify-center px-4 py-12">
+    <div className="min-h-screen bg-neutral-900 text-neutral-100 flex flex-col items-center px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">TCG Price Link Generator</h1>
@@ -353,64 +353,82 @@ function App() {
         {savedMessage && (
           <p className="text-sm text-green-400">Katakana saved.</p>
         )}
+      </div>
 
-        {/* Generated Links */}
-        {(yuyuteiLink || priceChartingLink) && (
-          <div className="space-y-3 rounded-lg border border-neutral-700 bg-neutral-800 p-4 text-sm">
-            {yuyuteiLink && (
-              <div>
-                <span className="font-semibold text-neutral-400">
-                  Yuyutei:
-                </span>
-                <a
-                  href={yuyuteiLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-2 break-all text-indigo-400 hover:underline"
-                >
-                  {yuyuteiLink}
-                </a>
-              </div>
-            )}
-            {priceChartingLink && (
-              <div>
-                <span className="font-semibold text-neutral-400">
-                  PriceCharting:
+      {/* Iframe Results — wider than the form */}
+      {(yuyuteiLink || priceChartingLink) && (
+        <div className="w-full max-w-5xl mt-6 flex flex-col min-[700px]:flex-row gap-4">
+          {priceChartingLink && (
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-400">
+                  PriceCharting
                 </span>
                 <a
                   href={priceChartingLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-2 break-all text-indigo-400 hover:underline"
+                  className="text-xs text-indigo-400 hover:underline"
                 >
-                  {priceChartingLink}
+                  Open in new tab
                 </a>
               </div>
-            )}
-          </div>
-        )}
+              <iframe
+                src={priceChartingLink}
+                title="PriceCharting search results"
+                referrerPolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                className="w-full h-[420px] rounded-lg border border-neutral-700 bg-neutral-800"
+              />
+            </div>
+          )}
+          {yuyuteiLink && (
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-neutral-400">
+                  Yuyutei
+                </span>
+                <a
+                  href={yuyuteiLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-indigo-400 hover:underline"
+                >
+                  Open in new tab
+                </a>
+              </div>
+              <iframe
+                src={yuyuteiLink}
+                title="Yuyutei search results"
+                referrerPolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                className="w-full h-[420px] rounded-lg border border-neutral-700 bg-neutral-800"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Recent Searches */}
-        {recentSearches.length > 0 && (
-          <div className="space-y-2">
-            <h2 className="text-sm font-semibold text-neutral-400">
-              Recent Searches
-            </h2>
-            <ul className="space-y-1">
-              {recentSearches.map((item) => (
-                <li key={`${item.cardName}-${item.cardType}`}>
-                  <button
-                    onClick={() => handleRecentClick(item)}
-                    className="w-full rounded-md px-3 py-1.5 text-left text-sm text-neutral-300 transition hover:bg-neutral-800"
-                  >
-                    {item.cardName} ({getCardTypeLabel(item.cardType)})
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      {/* Recent Searches */}
+      {recentSearches.length > 0 && (
+        <div className="w-full max-w-md mt-6 space-y-2">
+          <h2 className="text-sm font-semibold text-neutral-400">
+            Recent Searches
+          </h2>
+          <ul className="space-y-1">
+            {recentSearches.map((item) => (
+              <li key={`${item.cardName}-${item.cardType}`}>
+                <button
+                  onClick={() => handleRecentClick(item)}
+                  className="w-full rounded-md px-3 py-1.5 text-left text-sm text-neutral-300 transition hover:bg-neutral-800"
+                >
+                  {item.cardName} ({getCardTypeLabel(item.cardType)})
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
