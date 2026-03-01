@@ -20,8 +20,8 @@ export default function CurrencyConverter() {
     })
   }, [])
 
-  const usdValue = parseFloat(usdInput)
-  const jpyValue = parseFloat(jpyInput)
+  const usdValue = parseFloat(usdInput.replace(/,/g, ''))
+  const jpyValue = parseFloat(jpyInput.replace(/,/g, ''))
   const usdToIdr =
     rates && !isNaN(usdValue) ? idrFormat.format(usdValue * rates.usdToIdr) : null
   const jpyToIdr =
@@ -48,14 +48,15 @@ export default function CurrencyConverter() {
           <div className="flex-1 min-w-0 space-y-1">
             <label htmlFor="usd-input" className="text-xs text-neutral-400">
               USD → IDR
+              <span className="ml-1 text-neutral-500">
+                (1 USD = {rates.usdToIdr.toLocaleString('id-ID')} IDR)
+              </span>
             </label>
             <input
               id="usd-input"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min="0"
-              step="any"
-              placeholder="Enter USD amount"
+              placeholder="Enter USD amount (e.g. 1,500.00)"
               value={usdInput}
               onChange={(e) => setUsdInput(e.target.value)}
               className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
@@ -68,14 +69,15 @@ export default function CurrencyConverter() {
           <div className="flex-1 min-w-0 space-y-1">
             <label htmlFor="jpy-input" className="text-xs text-neutral-400">
               JPY → IDR
+              <span className="ml-1 text-neutral-500">
+                (1 JPY = {rates.jpyToIdr.toLocaleString('id-ID', { maximumFractionDigits: 2 })} IDR)
+              </span>
             </label>
             <input
               id="jpy-input"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min="0"
-              step="any"
-              placeholder="Enter JPY amount"
+              placeholder="Enter JPY amount (e.g. 15,600)"
               value={jpyInput}
               onChange={(e) => setJpyInput(e.target.value)}
               className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-indigo-500"
