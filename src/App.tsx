@@ -16,6 +16,7 @@ import {
   buildPriceChartingUrl,
   buildYuyuteiUrl,
   addRecentSearch,
+  fetchCategoryConfig,
 } from './utils'
 
 function App() {
@@ -76,12 +77,14 @@ function App() {
   useEffect(() => {
     setRecentSearches(loadRecentSearches())
     setUserConfig(loadUserConfig())
-
-    fetch('/configuration.json')
-      .then((res) => (res.ok ? res.json() : {}))
-      .then((data: FullConfig) => setDefaultConfig(data))
-      .catch(() => setDefaultConfig({}))
   }, [])
+
+  useEffect(() => {
+    if (defaultConfig[cardType]) return
+    fetchCategoryConfig(cardType).then((data) => {
+      setDefaultConfig((prev) => ({ ...prev, [cardType]: data }))
+    })
+  }, [cardType, defaultConfig])
 
   function handleGenerate(
     name: string = cardName,

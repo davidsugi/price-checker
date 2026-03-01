@@ -27,6 +27,7 @@ export type CardTypeValue = (typeof CARD_TYPE_OPTIONS)[number]['value']
 
 const LS_USER_CONFIG_KEY = 'tcg_config_user'
 const LS_RECENT_KEY = 'tcg_recent_searches'
+const LS_DEFAULT_PREFIX = 'tcg_default_'
 const MAX_RECENT = 10
 
 export function getCardTypeLabel(value: string): string {
@@ -78,6 +79,50 @@ export function saveRecentSearches(items: RecentSearch[]): void {
     localStorage.setItem(LS_RECENT_KEY, JSON.stringify(items))
   } catch {
     /* silently ignore */
+  }
+}
+
+// --- Default translation cache (per-category) ---------------------------
+
+export function loadCachedCategory(cardType: string): CategoryConfig | null {
+  try {
+    const raw = localStorage.getItem(LS_DEFAULT_PREFIX + cardType)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as CategoryConfig
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export function saveCachedCategory(
+  cardType: string,
+  data: CategoryConfig,
+): void {
+  try {
+    localStorage.setItem(LS_DEFAULT_PREFIX + cardType, JSON.stringify(data))
+  } catch {
+    /* quota exceeded or unavailable */
+  }
+}
+
+export async function fetchCategoryConfig(
+  cardType: string,
+): Promise<CategoryConfig> {
+  const cached = loadCachedCategory(cardType)
+  if (cached) return cached
+
+  try {
+    const res = await fetch(`/translations/${cardType}.json`)
+    if (!res.ok) return {}
+    const data = (await res.json()) as CategoryConfig
+    saveCachedCategory(cardType, data)
+    return data
+  } catch {
+    return {}
   }
 }
 
