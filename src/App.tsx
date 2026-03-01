@@ -308,7 +308,7 @@ function App() {
             htmlFor="japaneseOverride"
             className="text-sm text-neutral-400"
           >
-            Japanese Override (optional)
+            Japanese Override / Search by code (optional)
           </label>
           <input
             id="japaneseOverride"
