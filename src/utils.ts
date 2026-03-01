@@ -124,6 +124,43 @@ export function mergeImportedConfig(
 
 // --- Translation ---------------------------------------------------------
 
+/**
+ * Applies common post-fixes to Wanakana katakana output. Wanakana often mangles
+ * "d"/"r" clusters (e.g. dra → dラ), "th" (→ ス), and "l"/"r" (both map to ら-row).
+ * Used only at runtime when auto-converting unknown tokens to katakana.
+ */
+export function fixWanakanaKatakana(katakana: string): string {
+  if (!katakana || typeof katakana !== 'string') return katakana
+  let s = katakana
+
+  // d + ラ/リ/ル/レ/ロ → ドラ/ドリ/ドル/ドレ/ドロ
+  s = s.replace(/d(ラ)/g, 'ド$1')
+  s = s.replace(/d(リ)/g, 'ド$1')
+  s = s.replace(/d(ル)/g, 'ド$1')
+  s = s.replace(/d(レ)/g, 'ド$1')
+  s = s.replace(/d(ロ)/g, 'ド$1')
+
+  // th: デアth → デス, then any remaining th → ス
+  s = s.replace(/アth/g, 'ス')
+  s = s.replace(/th/g, 'ス')
+
+  // ll → single ル, then remaining l → ル
+  s = s.replace(/ll/g, 'ル')
+  s = s.replace(/l/g, 'ル')
+
+  // leftover r → ル
+  s = s.replace(/r/g, 'ル')
+
+  // g+レ → グレ, s+ク → スク
+  s = s.replace(/g(レ)/g, 'グ$1')
+  s = s.replace(/s(ク)/g, 'ス$1')
+
+  // y after kana → イ
+  s = s.replace(/([ァ-ヴ])y(?=[ァ-ヴ]|モン|$)/g, '$1イ')
+
+  return s
+}
+
 export function getJapaneseText(
   normalizedName: string,
   override: string,
@@ -145,7 +182,7 @@ export function getJapaneseText(
       return effectiveConfig[token]
     }
     anyMissing = true
-    return toKatakana(token)
+    return fixWanakanaKatakana(toKatakana(token))
   })
 
   return { japaneseText: parts.join(''), notInList: anyMissing }
