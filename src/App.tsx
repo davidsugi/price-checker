@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import CurrencyConverter from './CurrencyConverter'
+import OcrScanner from './OcrScanner'
 import {
   type RecentSearch,
   type FullConfig,
@@ -36,6 +37,7 @@ function App() {
   const [lastNormalized, setLastNormalized] = useState('')
   const [savedMessage, setSavedMessage] = useState(false)
   const [importMessage, setImportMessage] = useState('')
+  const [ocrOpen, setOcrOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const comboboxRef = useRef<HTMLDivElement>(null)
@@ -346,6 +348,14 @@ function App() {
           />
         </div>
 
+        {/* Scan Card (mobile only) */}
+        <button
+          onClick={() => setOcrOpen(true)}
+          className="w-full rounded-lg border border-indigo-500 px-4 py-2 text-sm font-semibold text-indigo-400 transition hover:bg-indigo-500/10 min-[700px]:hidden"
+        >
+          Scan Card (OCR)
+        </button>
+
         {/* Generate */}
         <button
           disabled={isDisabled}
@@ -462,6 +472,8 @@ function App() {
           </ul>
         </div>
       )}
+
+      <OcrScanner open={ocrOpen} onClose={() => setOcrOpen(false)} />
     </div>
   )
 }
